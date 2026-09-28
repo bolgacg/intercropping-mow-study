@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Which setting moves the first cut?</title>
+<meta name="description" content="The mow decision rule from the Robotic Intercropping crop service, run unchanged over fifteen years of Danish weather: which of its four settings decides the day the rover is sent to cut the clover. Bolgaç Gülen, 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#faf9f7;--ink:#1a1d21;--soft:#5b6470;--faint:#8b95a1;--rule:#e2e0dc;--rule2:#c9c5be;--panel:#f3f1ed;--card:#fff;
+  --pos:#2f7d54;--neg:#b03a3a;--accent:#2c4a6b;--amber:#c8860d;--wheat:#b8892b;--clover:#3f7d4e;--dim:rgba(26,29,33,.55);
+  --serif:'Newsreader',Georgia,serif;--sans:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#1b1d20;--ink:#e8e6e1;--soft:#b3b8bf;--faint:#8b929b;--rule:#34373c;--rule2:#4a4e55;--panel:#23262a;--card:#24272b;
+  --pos:#6dbb8c;--neg:#e07b7b;--accent:#8fb3d9;--amber:#e0a94a;--wheat:#d9b060;--clover:#78b98a;--dim:rgba(0,0,0,.6)}}
+:root[data-theme="dark"]{--paper:#1b1d20;--ink:#e8e6e1;--soft:#b3b8bf;--faint:#8b929b;--rule:#34373c;--rule2:#4a4e55;--panel:#23262a;--card:#24272b;
+  --pos:#6dbb8c;--neg:#e07b7b;--accent:#8fb3d9;--amber:#e0a94a;--wheat:#d9b060;--clover:#78b98a;--dim:rgba(0,0,0,.6)}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;padding-bottom:110px}
+a{color:var(--accent);text-decoration:none;font-weight:500}a:hover{text-decoration:underline}
+.wrap{max-width:960px;margin:0 auto;padding:0 16px}
+header{padding:44px 0 28px;border-bottom:1px solid var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.16em;color:var(--faint);text-transform:uppercase}
+h1{font-family:var(--serif);font-weight:600;font-size:clamp(30px,5vw,48px);line-height:1.1;letter-spacing:-.01em;margin:12px 0 16px;max-width:820px;text-wrap:balance}
+.qa{list-style:none;padding:0;max-width:780px;margin:0 0 16px}
+.qa li{padding:8px 0;border-top:1px solid var(--rule);font-size:16px}
+.qa li:last-child{border-bottom:1px solid var(--rule)}
+.qa b{display:block;font-family:var(--serif);font-size:18px;font-weight:600}
+.dek{max-width:760px;color:var(--soft);font-size:17px;font-family:var(--serif);line-height:1.5}
+.byline{margin-top:16px;font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+section{padding:40px 0 6px}
+.sec-label{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+h2{font-family:var(--serif);font-weight:600;font-size:28px;line-height:1.2;margin-bottom:10px;text-wrap:balance}
+h3{font-family:var(--serif);font-size:19px;font-weight:600;margin-bottom:6px}
+p{margin-bottom:12px}
+.lede{color:var(--soft);max-width:760px;margin-bottom:16px}
+.lede strong{color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:20px 22px;margin-top:14px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:4px 0}
+.ctl .lab{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);min-width:150px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:12px;padding:6px 11px;border:1px solid var(--rule2);border-radius:3px;background:var(--card);color:var(--soft);cursor:pointer}
+.chip:hover{color:var(--ink);border-color:var(--soft)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);font-weight:500}
+.chip .ship{font-size:10px;opacity:.75;margin-left:4px}
+.hint{font-size:12.5px;color:var(--faint);line-height:1.45;margin:4px 0 8px}
+.viz{position:relative}.viz svg{width:100%;height:auto;display:block;overflow:visible}
+.viz text{font-family:var(--mono);font-size:11px;fill:var(--soft)}
+.viz .ttl{font-family:var(--sans);font-size:12px;fill:var(--ink);font-weight:500}
+.viz .axis line,.viz .axis path{stroke:var(--rule2)}
+.viz .grid line{stroke:var(--rule)}
+.row-hit{cursor:pointer}
+.row-hit:hover rect.bg{fill:var(--panel)}
+.cap{font-size:13.5px;color:var(--soft);margin-top:10px;max-width:780px}
+.cap span{display:block;margin-bottom:3px}
+.cap b{color:var(--ink);font-weight:600}
+.readout{font-size:15px;margin-top:10px;padding:10px 12px;background:var(--panel);border-radius:4px}
+.verdict{margin-top:16px;padding:2px 0 2px 16px;border-left:3px solid var(--accent);font-size:15px;max-width:780px}
+.verdict b{color:var(--accent)}
+.handover{margin-top:14px;font-family:var(--serif);font-size:17px;max-width:760px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);text-align:right;padding:0 0 8px;border-bottom:1px solid var(--rule);white-space:nowrap}
+th:first-child{text-align:left}
+td{padding:7px 0;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td:first-child{text-align:left}
+th+th,td+td{padding-left:14px}
+tr.shipped td{background:var(--panel);font-weight:500}
+td.derived,th.derived{color:var(--accent)}
+.tscroll{overflow-x:auto}
+.note{font-size:12.5px;color:var(--faint);margin-top:10px;line-height:1.5}
+code{font-family:var(--mono);font-size:12.5px;background:var(--panel);padding:1px 4px;border-radius:3px}
+pre{font-family:var(--mono);font-size:12.5px;background:var(--panel);padding:12px 14px;border-radius:4px;overflow-x:auto;line-height:1.5;margin:8px 0 12px}
+.limits{margin-top:6px;border:1px solid var(--rule);border-left:3px solid var(--neg);border-radius:4px;padding:16px 20px;background:var(--card);max-width:820px}
+.limits h3{color:var(--neg)}
+.limits ul{padding-left:18px}
+.limits li{font-size:14.5px;color:var(--soft);margin-bottom:6px}
+.limits li b{color:var(--ink)}
+.primer{padding-left:20px;max-width:780px}
+.primer li{margin-bottom:6px}
+.gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+.gate{border:1px solid var(--rule);border-radius:5px;padding:10px 12px;background:var(--card);font-size:13.5px}
+.gate .k{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.08em}
+.gate .v{font-family:var(--mono);font-size:13px;margin-top:4px}
+.gate.set{border-color:var(--accent)}
+.gate .where{font-size:12px;color:var(--soft);margin-top:4px}
+.gate.set .where{color:var(--accent)}
+.gloss{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px 24px;font-size:13px;color:var(--soft);margin-top:10px}
+.gloss b{color:var(--ink);font-family:var(--mono);font-size:12px;font-weight:500}
+.check{font-family:var(--mono);font-size:13px}
+.check .ok{color:var(--pos)}.check .bad{color:var(--neg)}
+footer{border-top:1px solid var(--rule);margin-top:44px;padding:20px 0 30px;font-family:var(--mono);font-size:12px;color:var(--faint)}
+#tour{position:absolute;top:0;left:0;right:0;z-index:50;display:none;pointer-events:none}
+#tour.on{display:block}
+.tour-hl{position:absolute;border:2px solid var(--accent);border-radius:8px;box-shadow:0 0 0 9999px var(--dim);transition:all .35s ease;pointer-events:none}
+.tour-card{position:absolute;width:min(400px,calc(100vw - 32px));background:var(--card);border:1px solid var(--rule2);border-radius:8px;padding:16px 18px;box-shadow:0 6px 30px rgba(0,0,0,.2);pointer-events:auto}
+.tour-card .tk{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.tour-card p{font-size:14px;line-height:1.55;color:var(--ink);margin:0 0 12px}
+.tour-nav{display:flex;align-items:center;gap:8px}
+.tour-nav .dots{flex:1;display:flex;gap:5px}
+.tour-nav .dots i{width:6px;height:6px;border-radius:50%;background:var(--rule2)}
+.tour-nav .dots i.on{background:var(--accent)}
+.tour-btn{font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:4px;border:1px solid var(--rule2);background:var(--card);color:var(--soft);cursor:pointer}
+.tour-btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.tour-open{font-family:var(--mono);font-size:12px;padding:6px 12px;border-radius:4px;border:1px solid var(--accent);background:var(--card);color:var(--accent);cursor:pointer}
+.tour-open:hover{background:var(--accent);color:var(--paper)}
+@media (max-width:560px){.ctl .lab{min-width:0;width:100%}h2{font-size:24px}.card{padding:16px 14px}.viz{overflow-x:auto;-webkit-overflow-scrolling:touch}.viz svg{min-width:700px}.viz::before{content:'Swipe the chart sideways to see all of it.';display:block;font-size:12px;color:var(--faint);margin-bottom:4px}}
+</style>
+</head>
+<body>
+<div id="tour"><div class="tour-hl"></div><div class="tour-card"></div></div>
+
+<header><div class="wrap">
+  <div class="eyebrow">Work sample &middot; Robotic Intercropping mow rule &middot; SDU PhD 4288</div>
+  <h1>When does your mow rule send the rover out, and which setting moves that day?</h1>
+  <ul class="qa">
+    <li><b>Does the rule give a usable date early in the season?</b><span id="qa1">Loading the study.</span></li>
+    <li><b>Does the competition threshold move the first cut?</b><span id="qa2"></span></li>
+    <li><b>What does move it?</b><span id="qa3"></span></li>
+  </ul>
+  <p class="dek">This page runs the mow decision rule from your crop service, unchanged, against fifteen years of past Danish weather in the Spring 2026 trial settings from your repository. It is written for the people who configure and supervise that trial. At the end you will know which of the rule's four settings decides the day the rover is sent to cut the clover, and there is a two-patch change that lets a trial set all four.</p>
+  <div class="byline">
+    <span>Bolga&ccedil; G&uuml;len</span><span id="built"></span>
+    <a href="https://gitlab.sdu.dk/jehm/intercropingroboticsdigitaltwin">Source repository</a>
+    <a href="patches/README.md">The patches</a>
+    <button class="tour-open" id="tourbtn">Walk me through it</button>
+  </div>
+</div></header>
+
+<section id="act1"><div class="wrap">
+  <div class="sec-label">1 &middot; What the rule gets right</div>
+  <h2>Standing on 1 May 2026, the rule already knows roughly when to cut</h2>
+  <p class="lede">A mow recommendation only helps a farmer if it arrives early enough to plan around and does not swing with weather nobody can know yet. This test uses the real 2026 weather up to 30 April; after that, each run borrows the rest of the year from one past year, 2015 to 2025, and one run uses the day-by-day average of those eleven.</p>
+  <div class="card" id="futurecard">
+    <p class="hint"><b>Click any row</b> to read its three cut dates in the box under the chart. The average-weather row is selected to start.</p>
+    <div class="viz" id="futureviz"></div>
+    <div class="readout" id="futureread"></div>
+    <div class="cap">
+      <span><b>What you see.</b> Twelve simulated 2026 seasons, one per row; each dot is a day the rule recommended a cut and the simulated farmer cut.</span>
+      <span><b>How to read it.</b> Rows differ only in the weather after 30 April. Dots that line up vertically mean the weather after 1 May barely changes that cut.</span>
+      <span><b>The take-away.</b> <span id="futuretake"></span></span>
+    </div>
+  </div>
+  <div class="verdict" id="v1"></div>
+  <p class="handover">So the rule answers the question of when. The next question is which of its settings that answer depends on, which needs the vocabulary below.</p>
+</div></section>
+
+<section id="primer"><div class="wrap">
+  <div class="sec-label">Primer</div>
+  <h2>The rule opens four gates, and a trial can set one of them</h2>
+  <ol class="primer">
+    <li>In strip intercropping, a cash crop (here spring wheat) grows in strips beside strips of a service crop (here a clover and lucerne mix) that stays in the field as a living mulch.</li>
+    <li>The clover shades the wheat, so a rover mows the clover strips; the practical question is on which day.</li>
+    <li>Your crop service simulates both crops day by day with LINTUL1Strip, a crop model built on how much light each strip intercepts, and a separate rule, <code>apply_mow_decision</code>, reads that simulation and marks each day as recommended, blocked or neither.</li>
+    <li>The rule recommends a cut only on a day when all four gates below are open.</li>
+    <li>Only one of the four, the competition threshold, can be set from the trial file, the API or the dashboard; the other three are constants in <code>mow_decision.py</code>.</li>
+  </ol>
+  <div class="gates" id="gatebox">
+    <div class="gate"><div class="k">GATE A &middot; HEIGHT</div><div class="v">clover &ge; 15 cm</div><div class="where">MIN_MOW_HEIGHT_CM, a constant in source</div></div>
+    <div class="gate"><div class="k">GATE B &middot; RECOVERY</div><div class="v">&ge; 28 days since last cut</div><div class="where">MIN_MOW_INTERVAL_DAYS, a constant in source</div></div>
+    <div class="gate set"><div class="k">GATE C &middot; COMPETITION</div><div class="v">index &gt; threshold (0.25 in Spring 2026)</div><div class="where">mowThreshold: trial file, API and dashboard</div></div>
+    <div class="gate"><div class="k">GATE D &middot; WHEAT STAGE</div><div class="v">wheat emerged, not flowering to ripening</div><div class="where">a fixed set of stages in source</div></div>
+  </div>
+  <p class="note">A fifth value, CRITICAL_COMP_INDEX (0.45, also a constant), does not open or close anything; above it a recommended day is labelled "critical" instead of "recommended".</p>
+  <div class="gloss">
+    <div><b>competition index</b><br>The crop model's daily light-competition index for the clover strip, 0 to 1. Near 1 means the clover takes almost all the light, as it does while the wheat is not yet up.</div>
+    <div><b>first cut</b><br>The first day in a season the rule recommends mowing; the date this page measures.</div>
+    <div><b>day of year</b><br>1 January is day 1; day 140 is 20 May in a year that is not a leap year.</div>
+    <div><b>closed loop</b><br>The simulated farmer cuts on the first day of each recommendation window, the season is re-run with that cut, and so on until the rule recommends nothing new.</div>
+    <div><b>ERA5</b><br>The European weather reanalysis, past weather reconstructed from observations, served here by Open-Meteo through your own <code>weather_provider</code>.</div>
+    <div><b>Spring 2026 settings</b><br>From <code>crop_model/trials/Spring 2026.json</code>: wheat sown 1 May, clover regrowing from 1 March, threshold 0.25.</div>
+  </div>
+</div></section>
+
+<section id="act2"><div class="wrap">
+  <div class="sec-label">2 &middot; Which setting moves the first cut</div>
+  <h2>The threshold on the dashboard, against the height in the source file</h2>
+  <p class="lede">A trial manager who wants the rover out earlier or later will reach for the setting the dashboard offers. This section checks whether that setting reaches the date, across fifteen completed years of weather, 2011 to 2025.</p>
+
+  <div class="limits" id="limits">
+    <h3>What these numbers are and are not</h3>
+    <ul>
+      <li><b>Model outputs, not field measurements.</b> The comparison is between settings of a decision rule inside your own model and claims nothing about a real field.</li>
+      <li><b>The Python reference, not the paper-facing model.</b> The runs use <code>lintul1strip_sim.py</code>, the in-process reference in your repository. The C# LINTUL1Strip model behind the other providers needs dotnet, which I could not run, so its crop physics may give other dates. The decision rule is the same code on both paths.</li>
+      <li><b>The accept policy is mine.</b> The simulated farmer cuts on the first day of each recommendation window. A farmer who waits a few days gets later dates.</li>
+      <li><b>The clover's modelled height rests on placeholders.</b> <code>H0</code>, <code>Hmax</code> and <code>GRH</code> in <code>lintul1strip_sim.py</code> are marked PLACEHOLDER in your source. The size of the shift the height produces depends on them. That the threshold row is flat does not: it is flat at every height tested.</li>
+      <li><b>One trial shape.</b> Spring wheat sown 1 May with the clover regrowing from 1 March, as in the Spring 2026 file. Other sowing dates, crops and service crops were not swept here.</li>
+    </ul>
+  </div>
+
+  <div class="card" id="sweepcard">
+    <div class="ctl"><span class="lab">Competition threshold</span><div class="chips" id="tchips" role="group" aria-label="Competition threshold"></div></div>
+    <div class="ctl"><span class="lab">Minimum clover height</span><div class="chips" id="hchips" role="group" aria-label="Minimum clover height"></div></div>
+    <p class="hint">The two rows of buttons set the threshold and the height. The ringed dot on each chart and the readout below follow your choice; the shipped setting is marked "trial".</p>
+    <div class="viz" id="sweepviz"></div>
+    <div class="readout" id="sweepread"></div>
+    <div class="cap">
+      <span><b>What you see.</b> Left, the average first-cut date over fifteen seasons against the threshold, one line per height. Right, the same date against the height, one line per threshold.</span>
+      <span><b>How to read it.</b> A line that climbs means the setting moves the date. On the right, all six threshold lines are drawn and lie exactly on top of each other.</span>
+      <span><b>The take-away.</b> <span id="sweeptake"></span></span>
+    </div>
+  </div>
+  <div class="verdict" id="v2"></div>
+
+  <div class="card" id="gridcard">
+    <h3>The full grid, recomputed in your browser</h3>
+    <p class="hint">Each cell is the mean day of year of the first cut over fifteen seasons, computed on this page from the 630 closed-loop seasons in <a href="grid.json">grid.json</a>. The last column is the largest minus the smallest value in the row.</p>
+    <div class="tscroll"><table id="gridtable"><thead></thead><tbody></tbody></table></div>
+    <p class="note">The shaded row is the height in the source file. No cell is empty: every combination was run for all fifteen years.</p>
+  </div>
+  <p class="handover">A flat row could mean the threshold is never read. The next section shows it is read, and why it still never decides in these settings.</p>
+</div></section>
+
+<section id="act3"><div class="wrap">
+  <div class="sec-label">3 &middot; Why the threshold does not decide here</div>
+  <h2>The competition gate opens in March; the height gate opens in May</h2>
+  <p class="lede">The order in which the four gates open tells you which one sets the date, and also when the threshold would start to matter. This is one uncut season, 2019 weather, Spring 2026 settings.</p>
+  <div class="card" id="mechcard">
+    <div class="ctl"><span class="lab">Competition threshold</span><div class="chips" id="mchips" role="group" aria-label="Competition threshold for the 2019 season"></div></div>
+    <p class="hint">Change the threshold: the dashed line moves, but the index is already near 1 on the day it crosses any of them, so the competition bar and the first recommended day stay put.</p>
+    <div class="viz" id="mechviz"></div>
+    <div class="readout" id="mechread"></div>
+    <div class="cap">
+      <span><b>What you see.</b> Top, the competition index each day with the threshold dashed; middle, the modelled clover height with the 15 cm gate dashed; bottom, when each gate is open.</span>
+      <span><b>How to read it.</b> The rule can recommend only where all bars overlap. The vertical line is the first such day. Gate B is open all spring because nothing has been cut yet.</span>
+      <span><b>The take-away.</b> <span id="mechtake"></span></span>
+    </div>
+  </div>
+  <div class="verdict" id="v3"></div>
+  <p class="lede" style="margin-top:14px">The threshold would plausibly bind when the index rises late rather than early: wheat and clover sown together, an autumn-sown wheat already shading the clover in March, or a service crop that grows tall before it closes its canopy, such as sole lucerne. I have not run those cases.</p>
+  <p class="handover">So in these settings the date follows a value that is set in the source file. The last section is the change that makes it settable.</p>
+</div></section>
+
+<section id="act4"><div class="wrap">
+  <div class="sec-label">4 &middot; The change</div>
+  <h2>Give the other three gates the route the threshold already has</h2>
+  <p class="lede">The finding is about a configuration path, so the remedy is a configuration path. Your code already calls the height and the critical index a "configurable default", and <code>MOWING_REFERENCES.md</code> answers "Configurable? Yes" for the height; the first patch makes that true for the trial file and the API.</p>
+  <div class="card" id="patchcard">
+    <pre>def apply_mow_decision(
+    physics: dict,
+    mow_threshold: float = 0.30,
+    *,
+    min_height_cm: float = MIN_MOW_HEIGHT_CM,
+    min_interval_days: int = MIN_MOW_INTERVAL_DAYS,
+    critical_comp_index: float = CRITICAL_COMP_INDEX,
+) -&gt; dict:</pre>
+    <p><b>Patch 1</b> adds the three keyword arguments above, each defaulting to today's constant, so every existing caller gets the same result. The trial file and <code>POST /api/crop/trial-config</code> accept <code>minMowHeightCm</code>, <code>minMowIntervalDays</code> and <code>criticalCompIndex</code> beside <code>mowThreshold</code>, and the local, REST and C# provider wrappers pass them through. They join the trial hash only when a trial sets them, so existing trial hashes do not change. One test is added. The dashboard is left alone.</p>
+    <p><b>Patch 2</b> fixes the window log in the same file. It compared the last logged date with yesterday while only first days are logged, so a continuous run of recommended days was logged as a new window every second day; the closed-loop cut dates on this page are identical with and without it.</p>
+    <p class="small"><a href="patches/0001-Make-the-three-other-mow-criteria-configurable-like-.patch">0001, configurable criteria</a> &middot; <a href="patches/0002-Log-a-recommendation-window-once-on-its-first-day.patch">0002, window log</a> &middot; <a href="patches/README.md">how to apply, and the test result</a></p>
+  </div>
+  <p class="handover">With all four gates settable, the rule can be swept as a whole, which is where a question about trade-offs between the gates would start.</p>
+</div></section>
+
+<section id="coda"><div class="wrap">
+  <div class="sec-label">How it was built</div>
+  <h2>Method, self-check and sources</h2>
+  <p>The study imports <code>run_treatment_physics</code> and <code>apply_mow_decision</code> from the archived MIT-licensed <code>crop_model/</code> and changes nothing in them; the height sweep sets the module constant before each run. Weather comes from <code>fetch_daily_weather</code> at the coordinates in your trial file, completed years only, so every simulated day carries real weather. One season takes about a fifth of a second, and the grid of 630 seasons about two minutes. The three scripts and the order to run them are in <a href="study/README.md">study/</a>; they need Python 3 and your <code>crop_model/</code> folder and nothing else.</p>
+  <div class="card" id="selfcheck">
+    <h3>Self-check</h3>
+    <div class="check" id="checkout">Running.</div>
+  </div>
+  <p class="note">Sources: Open-Meteo historical weather API (ERA5), Zippenfenig 2023, doi:10.5281/zenodo.7970649. The rule's own literature, cited in <code>mow_decision.py</code>: Moran, Sprague and Sullivan 1953 (height and interval), Kropff and van Laar 1993 (competition), Zadoks et al. 1974 and Meier 2001 (growth stages). The field layout files in the repository were not used for anything on this page.</p>
+</div></section>
+
+<footer><div class="wrap">Bolga&ccedil; G&uuml;len &middot; every number on this page is computed from the study outputs it ships (grid.json, analogue_2026.json, series_2019.json), not typed</div></footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

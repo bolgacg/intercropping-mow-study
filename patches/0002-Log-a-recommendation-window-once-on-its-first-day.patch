@@ -1,0 +1,57 @@
+From 829254c43d2f3cbb2f69c0dfab2cfcc9b4e21a8c Mon Sep 17 00:00:00 2001
+From: bolgacg <bolgacg1@gmail.com>
+Date: Mon, 28 Sep 2026 19:59:42 +0200
+Subject: [PATCH 2/2] Log a recommendation window once, on its first day
+
+The window check compared the last logged date with yesterday, but only the
+first day of a window is logged, so on the third day of a window the check
+failed and a new window was logged. A continuous run was recorded as one
+window every second day. Track whether yesterday was actionable instead.
+On an uncut spring-wheat season this turns about 40 logged windows back into
+the 2 contiguous runs they are. Closed-loop cut dates are unchanged.
+---
+ crop_model/mow_decision.py | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/crop_model/mow_decision.py b/crop_model/mow_decision.py
+index 9de251f..aa6af62 100644
+--- a/crop_model/mow_decision.py
++++ b/crop_model/mow_decision.py
+@@ -13,7 +13,7 @@ directly acting on Frits van Evert's recommendation (paper review, 2026-06-25)
+ to stop porting his C# model to Python. The model owns physics; we own the
+ decision; neither half is ever re-ported. See CROP_MODEL_PROVIDER.md.
+ """
+-from datetime import datetime, timedelta
++from datetime import datetime
+ 
+ from lintul1strip_sim import (
+     STAGE_BBCH,
+@@ -78,6 +78,7 @@ def apply_mow_decision(
+     mow_recommended = []
+     mow_recommendations = []
+     last_mow_date = None       # most recent actual cut, from the `mowed` flags
++    prev_actionable = False    # was yesterday recommended/critical?
+ 
+     for rec in physics["timeseries"]:
+         date_str = rec["date"]
+@@ -116,7 +117,7 @@ def apply_mow_decision(
+                     f"{comp_index * 100:.0f}% exceeds {mow_threshold * 100:.0f}% threshold"
+                 )
+             # Log first day of each recommendation window
+-            if not mow_recommended or mow_recommended[-1] != (current_date - timedelta(days=1)).strftime("%Y-%m-%d"):
++            if not prev_actionable:
+                 mow_recommended.append(date_str)
+                 mow_recommendations.append({
+                     "date": date_str,
+@@ -154,6 +155,8 @@ def apply_mow_decision(
+                 f"{mow_threshold * 100:.0f}% threshold - monitor"
+             )
+ 
++        prev_actionable = mow_status in ("recommended", "critical")
++
+         timeseries.append({
+             "date": date_str,
+             "doy": doy,
+-- 
+2.43.0
+

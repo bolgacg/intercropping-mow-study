@@ -1,0 +1,332 @@
+From 8e6bb8a36b9c5a2cce1c3138aed50cb842121407 Mon Sep 17 00:00:00 2001
+From: bolgacg <bolgacg1@gmail.com>
+Date: Mon, 28 Sep 2026 19:59:13 +0200
+Subject: [PATCH 1/2] Make the three other mow criteria configurable like
+ mowThreshold
+
+MIN_MOW_HEIGHT_CM, MIN_MOW_INTERVAL_DAYS and CRITICAL_COMP_INDEX were module
+constants, so a trial could set the competition threshold but not the other
+three criteria. apply_mow_decision now takes them as keyword arguments that
+default to the same constants, so every existing caller behaves as before.
+
+The trial config and POST /api/crop/trial-config accept minMowHeightCm,
+minMowIntervalDays and criticalCompIndex next to mowThreshold; unset means
+the rule default. The providers pass them through as mow_params. They join
+the trial hash only when set, so existing trial hashes do not change.
+The per-day criteria payload already carries each threshold, so the
+persisted recommendation rows record the values actually used.
+---
+ crop_model/crop_service.py             | 30 ++++++++++++++++++++++++++
+ crop_model/db.py                       |  5 +++++
+ crop_model/lintul1strip_sim.py         |  7 +++++-
+ crop_model/lintul_csharp.py            |  5 +++--
+ crop_model/lintul_rest.py              |  5 +++--
+ crop_model/mow_decision.py             | 30 ++++++++++++++++++--------
+ crop_model/test_crop_model_provider.py | 28 ++++++++++++++++++++++++
+ 7 files changed, 96 insertions(+), 14 deletions(-)
+
+diff --git a/crop_model/crop_service.py b/crop_model/crop_service.py
+index 5ae97d5..85686e9 100644
+--- a/crop_model/crop_service.py
++++ b/crop_model/crop_service.py
+@@ -160,6 +160,10 @@ _DEFAULT_TRIAL: dict = {
+     "serviceRegrowthDate": None,
+     "stopDate": None,
+     "mowThreshold": 0.30,
++    # None = use the rule's default (mow_decision.py [A], [B], [C])
++    "minMowHeightCm": None,
++    "minMowIntervalDays": None,
++    "criticalCompIndex": None,
+     "cashRows": 4,
+     "serviceRows": 4,
+     "actualMowDates": [],
+@@ -271,6 +275,21 @@ def _parse_date(s: Optional[str]) -> Optional[datetime]:
+     return datetime.strptime(s, "%Y-%m-%d")
+ 
+ 
++# Trial-config key -> apply_mow_decision keyword, for the three criteria that
++# sit beside mowThreshold.
++_MOW_PARAM_KEYS = {
++    "minMowHeightCm": "min_height_cm",
++    "minMowIntervalDays": "min_interval_days",
++    "criticalCompIndex": "critical_comp_index",
++}
++
++
++def _mow_params() -> dict:
++    """Criterion overrides set on the active trial; unset keys keep the rule default."""
++    return {kw: _trial_config[key] for key, kw in _MOW_PARAM_KEYS.items()
++            if _trial_config.get(key) is not None}
++
++
+ def _run_sim_with_trial(crop_name: str) -> dict:
+     """Run simulation using current weather + trial settings."""
+     year = _weather_config["year"]
+@@ -282,6 +301,7 @@ def _run_sim_with_trial(crop_name: str) -> dict:
+         stop_date=_parse_date(_trial_config["stopDate"]),
+         service_regrowth_date=_parse_date(_trial_config["serviceRegrowthDate"]),
+         mow_threshold=_trial_config["mowThreshold"],
++        mow_params=_mow_params(),
+         actual_mow_dates=_trial_config["actualMowDates"],
+         cash_rows=_trial_config["cashRows"],
+         service_rows=_trial_config["serviceRows"],
+@@ -335,6 +355,9 @@ class TrialConfigRequest(BaseModel):
+     serviceRegrowthDate: Optional[str] = None
+     stopDate: Optional[str] = None
+     mowThreshold: Optional[float] = None
++    minMowHeightCm: Optional[float] = None
++    minMowIntervalDays: Optional[int] = None
++    criticalCompIndex: Optional[float] = None
+     cashRows: Optional[int] = None
+     serviceRows: Optional[int] = None
+     actualMowDates: Optional[List[str]] = None
+@@ -409,6 +432,12 @@ def set_trial_config(req: TrialConfigRequest):
+         _trial_config["mowThreshold"] = req.mowThreshold
+         changed = True
+ 
++    for field in _MOW_PARAM_KEYS:
++        val = getattr(req, field)
++        if val is not None and val != _trial_config.get(field):
++            _trial_config[field] = val
++            changed = True
++
+     if req.cashRows is not None and req.cashRows != _trial_config["cashRows"]:
+         _trial_config["cashRows"] = req.cashRows
+         changed = True
+@@ -642,6 +671,7 @@ def _run_plot_sim(crop: str, actual_dates: List[str]) -> dict:
+         stop_date=_parse_date(_trial_config["stopDate"]),
+         service_regrowth_date=_parse_date(_trial_config["serviceRegrowthDate"]),
+         mow_threshold=_trial_config["mowThreshold"],
++        mow_params=_mow_params(),
+         actual_mow_dates=actual_dates,
+         cash_rows=_trial_config["cashRows"],
+         service_rows=_trial_config["serviceRows"],
+diff --git a/crop_model/db.py b/crop_model/db.py
+index 68f28ec..b42411a 100644
+--- a/crop_model/db.py
++++ b/crop_model/db.py
+@@ -300,6 +300,11 @@ def _trial_config_hash(trial_config: dict, weather_config: dict) -> str:
+         "weatherLat": weather_config.get("lat"),
+         "weatherLon": weather_config.get("lon"),
+     }
++    # The other three mow criteria join the hash only when a trial sets them, so
++    # hashes of existing trials (which leave them unset) do not change.
++    for key in ("minMowHeightCm", "minMowIntervalDays", "criticalCompIndex"):
++        if trial_config.get(key) is not None:
++            payload[key] = trial_config[key]
+     s = json.dumps(payload, sort_keys=True, default=str)
+     return hashlib.sha256(s.encode()).hexdigest()[:16]
+ 
+diff --git a/crop_model/lintul1strip_sim.py b/crop_model/lintul1strip_sim.py
+index 7b6a2c7..9a45d73 100644
+--- a/crop_model/lintul1strip_sim.py
++++ b/crop_model/lintul1strip_sim.py
+@@ -643,6 +643,7 @@ def run_treatment_simulation(
+     service_regrowth_date: datetime = None,
+     mow_threshold: float = 0.30,
+     actual_mow_dates: List[str] = None,
++    mow_params: dict = None,
+ ) -> dict:
+     """Run LINTUL1Strip for a cash crop vs clover/lucerne service crop.
+ 
+@@ -667,6 +668,10 @@ def run_treatment_simulation(
+     actual_mow_dates : list of "YYYY-MM-DD" strings, optional
+         Dates when mowing actually happened. On these dates the service crop
+         canopy is cut back (LAI, height, leaf/stem biomass reduced to stubble).
++    mow_params : dict, optional
++        Keyword overrides for the other three mow criteria, passed to
++        ``apply_mow_decision`` (min_height_cm, min_interval_days,
++        critical_comp_index). Omitted keys keep the rule's defaults.
+ 
+     Returns dict with timeseries + competition analysis.
+     """
+@@ -676,7 +681,7 @@ def run_treatment_simulation(
+         cash_crop_name, weather, cash_sowing_date, stop_date, cash_rows,
+         service_rows, year, service_regrowth_date, actual_mow_dates,
+     )
+-    return apply_mow_decision(physics, mow_threshold)
++    return apply_mow_decision(physics, mow_threshold, **(mow_params or {}))
+ 
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/crop_model/lintul_csharp.py b/crop_model/lintul_csharp.py
+index a85cd61..862f6d0 100644
+--- a/crop_model/lintul_csharp.py
++++ b/crop_model/lintul_csharp.py
+@@ -76,7 +76,7 @@ def _run(mode: str, input_obj: dict) -> dict:
+ def run_treatment_simulation(
+     cash_crop_name, weather, cash_sowing_date=None, stop_date=None,
+     cash_rows=4, service_rows=4, year=2013, service_regrowth_date=None,
+-    mow_threshold=0.30, actual_mow_dates=None,
++    mow_threshold=0.30, actual_mow_dates=None, mow_params=None,
+ ):
+     body = payload.physics_args_to_payload(
+         cash_crop_name, weather, cash_sowing_date, stop_date, cash_rows,
+@@ -90,12 +90,13 @@ def run_treatment_simulation(
+             return lintul_local.run_treatment_simulation(
+                 cash_crop_name, weather, cash_sowing_date, stop_date, cash_rows,
+                 service_rows, year, service_regrowth_date, mow_threshold, actual_mow_dates,
++                mow_params=mow_params,
+             )
+         raise
+     # The model returns physics only; the mow-decision rule is applied here so it
+     # never has to be re-ported into the model. See CROP_MODEL_PROVIDER.md.
+     from mow_decision import apply_mow_decision
+-    return apply_mow_decision(physics, mow_threshold)
++    return apply_mow_decision(physics, mow_threshold, **(mow_params or {}))
+ 
+ 
+ def run_simulation(input_json_path):
+diff --git a/crop_model/lintul_rest.py b/crop_model/lintul_rest.py
+index 121b1cd..0837157 100644
+--- a/crop_model/lintul_rest.py
++++ b/crop_model/lintul_rest.py
+@@ -56,7 +56,7 @@ def _post(path: str, body: dict) -> dict:
+ def run_treatment_simulation(
+     cash_crop_name, weather, cash_sowing_date=None, stop_date=None,
+     cash_rows=4, service_rows=4, year=2013, service_regrowth_date=None,
+-    mow_threshold=0.30, actual_mow_dates=None,
++    mow_threshold=0.30, actual_mow_dates=None, mow_params=None,
+ ):
+     body = payload.physics_args_to_payload(
+         cash_crop_name, weather, cash_sowing_date, stop_date, cash_rows,
+@@ -70,12 +70,13 @@ def run_treatment_simulation(
+             return lintul_local.run_treatment_simulation(
+                 cash_crop_name, weather, cash_sowing_date, stop_date, cash_rows,
+                 service_rows, year, service_regrowth_date, mow_threshold, actual_mow_dates,
++                mow_params=mow_params,
+             )
+         raise
+     # The model returns physics only; the mow-decision rule is applied here so it
+     # never has to be re-ported into the model. See CROP_MODEL_PROVIDER.md.
+     from mow_decision import apply_mow_decision
+-    return apply_mow_decision(physics, mow_threshold)
++    return apply_mow_decision(physics, mow_threshold, **(mow_params or {}))
+ 
+ 
+ def run_simulation(input_json_path):
+diff --git a/crop_model/mow_decision.py b/crop_model/mow_decision.py
+index 8089a93..9de251f 100644
+--- a/crop_model/mow_decision.py
++++ b/crop_model/mow_decision.py
+@@ -53,7 +53,14 @@ SENSITIVE_CASH_STAGES = frozenset({
+ })
+ 
+ 
+-def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
++def apply_mow_decision(
++    physics: dict,
++    mow_threshold: float = 0.30,
++    *,
++    min_height_cm: float = MIN_MOW_HEIGHT_CM,
++    min_interval_days: int = MIN_MOW_INTERVAL_DAYS,
++    critical_comp_index: float = CRITICAL_COMP_INDEX,
++) -> dict:
+     """Apply the multi-criteria mow rule on top of a physics IR.
+ 
+     `physics` is the dict returned by ``run_treatment_physics`` (or by an
+@@ -61,6 +68,11 @@ def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
+     decision needs is reconstructed from each day's ``mowed`` flag, so no
+     separate mow-date list is required here. Returns the full treatment result
+     dict the dashboard and persistence layer consume.
++
++    ``min_height_cm``, ``min_interval_days`` and ``critical_comp_index`` default
++    to the module constants [A], [B] and [C], so existing callers are unchanged;
++    passing them lets a trial set all four criteria the way it sets
++    ``mow_threshold``.
+     """
+     timeseries = []
+     mow_recommended = []
+@@ -80,8 +92,8 @@ def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
+         days_since_mow = (current_date - last_mow_date).days if last_mow_date else 9999
+ 
+         # --- Multi-criteria mowing decision ---
+-        tall_enough = service_h >= MIN_MOW_HEIGHT_CM
+-        recovered = days_since_mow >= MIN_MOW_INTERVAL_DAYS
++        tall_enough = service_h >= min_height_cm
++        recovered = days_since_mow >= min_interval_days
+         safe_stage = cash_stage not in SENSITIVE_CASH_STAGES
+         above_threshold = comp_index > mow_threshold
+         approaching = comp_index > mow_threshold * 0.75
+@@ -90,7 +102,7 @@ def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
+         mow_reason = None
+ 
+         if above_threshold and tall_enough and recovered and safe_stage:
+-            if comp_index >= CRITICAL_COMP_INDEX:
++            if comp_index >= critical_comp_index:
+                 mow_status = "critical"
+                 mow_reason = (
+                     f"Service crop at {service_h:.0f} cm intercepting "
+@@ -120,13 +132,13 @@ def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
+                 mow_reason = (
+                     f"Competition {comp_index * 100:.0f}% above threshold "
+                     f"but service crop only {service_h:.0f} cm - too short "
+-                    f"to cut (min {MIN_MOW_HEIGHT_CM:.0f} cm) [A]"
++                    f"to cut (min {min_height_cm:.0f} cm) [A]"
+                 )
+             elif not recovered:
+                 mow_reason = (
+                     f"Competition {comp_index * 100:.0f}% above threshold "
+                     f"but only {days_since_mow}d since last cut - roots "
+-                    f"need ≥{MIN_MOW_INTERVAL_DAYS}d to recover [B]"
++                    f"need ≥{min_interval_days}d to recover [B]"
+                 )
+             elif not safe_stage:
+                 mow_reason = (
+@@ -155,14 +167,14 @@ def apply_mow_decision(physics: dict, mow_threshold: float = 0.30) -> dict:
+             # and feeds the persisted mow_recommendations row.
+             "criteria": {
+                 "heightCm": round(service_h, 1),
+-                "heightThresholdCm": MIN_MOW_HEIGHT_CM,
++                "heightThresholdCm": min_height_cm,
+                 "heightPasses": tall_enough,
+                 "daysSinceCut": days_since_mow if last_mow_date else None,
+-                "daysThreshold": MIN_MOW_INTERVAL_DAYS,
++                "daysThreshold": min_interval_days,
+                 "daysPasses": recovered,
+                 "competitionIdx": round(comp_index, 4),
+                 "competitionThreshold": mow_threshold,
+-                "competitionCritical": CRITICAL_COMP_INDEX,
++                "competitionCritical": critical_comp_index,
+                 "competitionPasses": above_threshold,
+                 "cashStage": cash_stage,
+                 "cashStageBbch": STAGE_BBCH.get(cash_stage, ""),
+diff --git a/crop_model/test_crop_model_provider.py b/crop_model/test_crop_model_provider.py
+index f5c50f6..0c3627a 100644
+--- a/crop_model/test_crop_model_provider.py
++++ b/crop_model/test_crop_model_provider.py
+@@ -208,3 +208,31 @@ def main():
+ 
+ if __name__ == "__main__":
+     raise SystemExit(main())
++
++
++def test_mow_criteria_overrides():
++    """The three criterion keywords default to the module constants, and when
++    passed they reach the decision and the per-day criteria payload."""
++    import json
++    import mow_decision as md
++
++    w = synthetic_weather()
++    physics = sim.run_treatment_physics("spring wheat", w)
++    default = md.apply_mow_decision(physics, 0.25)
++    explicit = md.apply_mow_decision(
++        physics, 0.25,
++        min_height_cm=md.MIN_MOW_HEIGHT_CM,
++        min_interval_days=md.MIN_MOW_INTERVAL_DAYS,
++        critical_comp_index=md.CRITICAL_COMP_INDEX,
++    )
++    assert json.dumps(default, sort_keys=True) == json.dumps(explicit, sort_keys=True)
++
++    taller = md.apply_mow_decision(physics, 0.25, min_height_cm=md.MIN_MOW_HEIGHT_CM + 10)
++    assert all(d["criteria"]["heightThresholdCm"] == md.MIN_MOW_HEIGHT_CM + 10
++               for d in taller["timeseries"])
++    assert taller["mowDates"] != default["mowDates"]
++
++    via_sim = sim.run_treatment_simulation(
++        "spring wheat", w, mow_threshold=0.25,
++        mow_params={"min_height_cm": md.MIN_MOW_HEIGHT_CM + 10})
++    assert json.dumps(via_sim, sort_keys=True) == json.dumps(taller, sort_keys=True)
+-- 
+2.43.0
+
